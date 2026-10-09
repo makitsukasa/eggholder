@@ -53,10 +53,6 @@ SanderWel のような**密閉できる外殻**で包んだ携帯卵ケース。
 
 ## 生成手順
 
-事前に [Egg Carry Holder V2 (Thingiverse 1185864)](https://www.thingiverse.com/thing:1185864) から
-`cage.stl` をダウンロードし、`ref_CyberCyclist/files/cage.stl` に置く
-（参照モデルと生成物 `out/` はリポジトリに含めていない）。
-
 ```
 python scripts/01_cut_quarter.py      # cage.stl -> out/work/cage_quarter.stl (2x2の1個分を切出し)
 python scripts/02_make_symmetric.py   # -> out/work/cage_unit_sym.stl        (点対称化)
@@ -95,11 +91,7 @@ cage上下 x bottom/top (4組)   : 干渉 0.00 mm3
 はめあいがきつい／緩い場合は `scripts/04_build_shell.py` の `TCLR`（現在0.30）を
 調整して `04` から作り直す。
 
-## 未確認
-
-実機でのねじのはめあいと密閉性。2026-10-04 時点で印刷待ち。
-
 ## 参照元
 
-- `ref_CyberCyclist/` — Egg Carry Holder V2 (Thingiverse 1185864)
-- `ref_SanderWel/` — 3Dプリント 卵の携帯容器 (MakerWorld)
+- `ref_CyberCyclist/` — [Egg Carry Holder V2 (Thingiverse 1185864)](https://www.thingiverse.com/thing:1185864)
+- `ref_SanderWel/` — [3Dプリント 卵の携帯容器 (MakerWorld)](https://makerworld.com/ja/models/1239562-egg-travel-container)
