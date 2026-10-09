@@ -93,5 +93,5 @@ cage上下 x bottom/top (4組)   : 干渉 0.00 mm3
 
 ## 参照元
 
-- `ref_CyberCyclist/` — [Egg Carry Holder V2 (Thingiverse 1185864)](https://www.thingiverse.com/thing:1185864)
+- `ref_CyberCyclist/` — [Egg Carry Holder V2 (Thingiverse 1185864)](https://www.thingiverse.com/thing:1185864) — `cage.stl` を `ref_CyberCyclist/files/` に置くと `scripts/01` が読み込む
 - `ref_SanderWel/` — [3Dプリント 卵の携帯容器 (MakerWorld)](https://makerworld.com/ja/models/1239562-egg-travel-container)
