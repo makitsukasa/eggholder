@@ -18,6 +18,11 @@ print("[cage との干渉]")
 for cn,cm in [("上",sym),("下",lo)]:
     for sn,sm in [("bottom",bowl),("top",cap)]:
         print(f"   {sn} x cage{cn}: {B.intersection([sm,cm],engine=E).volume:6.2f} mm3")
+print("[殻を開けたとき cage が殻側に残るか (cage を殻から離す向きにずらす)]")
+for cn,cm,sn,sm,sg in [("上",sym,"top",cap,-1),("下",lo,"bottom",bowl,1)]:
+    for dz in (0.3,0.6,1.0):
+        c=cm.copy(); c.apply_translation([0,0,sg*dz])
+        print(f"   {sn} x cage{cn} {dz}mm: {B.intersection([sm,c],engine=E).volume:6.2f} mm3")
 print("[オーバーハング (印刷姿勢)]")
 for n,m,flip in [("bottom 底面下",bowl,False),("top 天面下(反転)",cap,True)]:
     x=m.copy()

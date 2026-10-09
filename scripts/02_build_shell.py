@@ -6,6 +6,7 @@ from thread_lib import helix_solid
 E="manifold"; B=trimesh.boolean
 
 CLEAR  = 1.0     # cage たわみ代
+LEG_CLR = 0.3    # cage の保持脚・爪と環状溝の隙間
 WALL   = 1.2     # 殻の肉厚
 SKWALL = 1.6     # 蓋スカートの肉厚
 MAXSLOPE = 1.0   # dR/dz 上限 = 45 度（オーバーハング禁止）
@@ -14,23 +15,26 @@ NECK_H, THR_Z0, THR_TURNS, GRV_TURNS = 9.5, 1.3, 1.1, 2.1
 SEAM_GAP = 0.5   # 締め切った時の蓋スカート下端と bottom の肩の隙間（シールは首の頂面で取る）
 END_D = 22.0     # 天面・底面の径
 
-u=trimesh.load("out/cage_unit.stl")
-V,F=trimesh.remesh.subdivide_to_size(u.vertices,u.faces,max_edge=0.4)
-ri=np.hypot(V[:,0],V[:,1]); zi=V[:,2]
-zi=np.r_[zi,-zi]; ri=np.r_[ri,ri]; HALF=zi.max()
+def pts(f):                          # 上下2枚分の (r, z)
+    u=trimesh.load(f); V,F=trimesh.remesh.subdivide_to_size(u.vertices,u.faces,max_edge=0.4)
+    r=np.hypot(V[:,0],V[:,1]); return np.r_[r,r], np.r_[V[:,2],-V[:,2]]
+body=pts("out/work/cage_body.stl"); legs=pts("out/work/cage_legs.stl")
+HALF=body[1].max()
 ZC = HALF+CLEAR          # 空洞の上下端
 ZO = ZC+WALL             # 殻の上下端
 
 zs=np.arange(-ZO-2, ZO+2, 0.1)
-def env(off):
-    d2=off*off-(zs[:,None]-zi[None,:])**2
+def env(p,off):
+    ri,zi=p; d2=off*off-(zs[:,None]-zi[None,:])**2
     return np.where(d2>0, ri[None,:]+np.sqrt(np.maximum(d2,0)),0).max(1)
 def cone45(R):                       # 45度コーンで膨張 -> |dR/dz|<=1 を保証、かつ R 以上
     return np.array([ (R - MAXSLOPE*np.abs(zs-z)).max() for z in zs ])
-Rcav = cone45(env(CLEAR))
-# 外形は空洞プロファイルの法線オフセット（肉厚を 45 度領域でも保つ）
+# 空洞＝本体の包絡面＋たわみ代 と 保持脚の包絡面＋LEG_CLR（全周の環状溝。爪の下の段が cage を吊る）
+Rbody= cone45(env(body,CLEAR))
+Rcav = np.maximum(Rbody, cone45(env(legs,LEG_CLR)))
+# 外形は本体の空洞プロファイルの法線オフセット（肉厚を 45 度領域でも保つ）。爪の溝は中実の肉に彫るだけで外形には効かせない
 d2 = WALL*WALL-(zs[:,None]-zs[None,:])**2
-Rout = np.where(d2>0, Rcav[None,:]+np.sqrt(np.maximum(d2,0)), 0).max(1)
+Rout = np.where(d2>0, Rbody[None,:]+np.sqrt(np.maximum(d2,0)), 0).max(1)
 
 NECK_R = Rout[np.argmin(np.abs(zs))]
 MAJ_R  = NECK_R+TDEPTH
@@ -59,11 +63,14 @@ fc_r=SKIRT_R-TOP_FILLET; fc_z=REND+ZO-fc_r-TOP_FILLET*np.sqrt(2)
 fz=(zs>=fc_z)&(zs<=fc_z+TOP_FILLET/np.sqrt(2))
 Rtop=np.where(fz, fc_r+np.sqrt(np.maximum(TOP_FILLET**2-(zs-fc_z)**2,0)), Rtop)
 Regg=np.where(zs<0, Rbot, Rtop)
-Rcav0=Rcav.max()                 # 首の内径（空洞の最大半径）
+Rcav0=Rbody.max()                # 首の内径（本体の空洞の最大半径。爪の溝は含めない）
 m=np.where(zs<0,Rout,Rcap)
 assert (Regg-m)[k&((zs<-SEAM_GAP)|(zs>=0))].min()>=-1e-6, "外形が必要形状を包んでいない"
 print(f"bottom ellipse b{eb:.2f} | top cone from z{ZO-(SKIRT_R-REND)/MAXSLOPE:.2f} fillet R{TOP_FILLET:.2f} z{fc_z:.2f}..{fc_z+TOP_FILLET/np.sqrt(2):.2f} | margin {(Regg-m)[k&((zs<-SEAM_GAP)|(zs>=0))].min():.2f}"
       f" | max |dR/dz| bottom {np.abs(np.diff(Rbot[k&(zs<-SEAM_GAP)])/0.1).max():.2f}")
+gz=k&(Rcav>Rbody+1e-6)&((zs<-NECK_H)|(zs>NECK_H))     # 溝の部分の残り肉厚（首の高さはねじ側で別管理）
+print(f"   groove z {zs[gz].min():.1f}..{zs[gz].max():.1f} (mirrored), r<= {Rcav[gz].max():.2f}, wall left {(Regg-Rcav)[gz].min():.2f} mm")
+assert (Regg-Rcav)[gz].min()>=WALL, "爪の溝で殻が薄くなりすぎる"
 print(f"=> OD {Regg[k].max()*2:.1f} mm, H {ZO*2:.1f} mm, base dia {np.interp(-ZO,zs,Regg)*2:.1f} / top dia {np.interp(ZO,zs,Regg)*2:.1f} mm")
 def rev(R,sec=256):
     k=(R>1e-6)&(zs>=-ZO-0.001)&(zs<=ZO+0.001); z,r=zs[k],R[k]
