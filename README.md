@@ -1,20 +1,38 @@
-# 卵ケース（cage 流用版）
+# 卵ケース
 
-CyberCyclist「Egg Carry Holder V2」の cage を内側のかごとして流用し、
-SanderWel のような**密閉できる外殻**で包んだ携帯卵ケース。
+CyberCyclist「Egg Carry Holder V2」の cage と同じ仕組み（ねじれた板ばねリブのかご）を
+内側に持ち、SanderWel のような**密閉できる外殻**で包んだ携帯卵ケース。
+全パーツをスクリプトで一から生成する（外部の STL は不要）。
 
 ## 構成：3種類・4パーツ
 
 | ファイル | 役割 | 枚数 | 外形 | モデル体積 |
 |---|---|---|---|---|
-| `out/cage_unit.stl` | 内側ケージ（点対称なので上下共通） | **2** | φ55.0 × H30.84 | 4.07 cm³ |
-| `out/shell_bottom.stl` | 外殻・下（おねじ） | 1 | φ65.2 × H42.54 | 24.00 cm³ |
-| `out/shell_top.stl` | 外殻・上（めねじ） | 1 | φ65.2 × H32.96 | 19.18 cm³ |
+| `out/cage_unit.stl` | 内側ケージ（点対称なので上下共通） | **2** | φ55.0 × H30.8 | 4.62 cm³ |
+| `out/shell_bottom.stl` | 外殻・下（おねじ） | 1 | φ65.2 × H42.5 | 23.82 cm³ |
+| `out/shell_top.stl` | 外殻・上（めねじ） | 1 | φ65.2 × H33.0 | 19.05 cm³ |
 
-**組立：最大外径 φ65.2 × 全高 66.1 mm / モデル体積合計 51.4 cm³**（殻は中実なのでインフィルで調整）
+**組立：最大外径 φ65.2 × 全高 66.0 mm / モデル体積合計 52.1 cm³**（殻は中実なのでインフィルで調整）
 （SanderWel は φ63.8・樹脂 115.9 cm³）
 
-## 設計パラメータ（`scripts/04_build_shell.py` 冒頭）
+## cage のパラメータ（`scripts/01_make_cage.py` 冒頭）
+
+元の cage を計測して求めた値。内径は元の cage と 0.3mm 以内で一致する。
+
+| 変数 | 値 | 意味 |
+|---|---|---|
+| `H` | 30.8 | 全高 |
+| `DOME_A` / `DOME_B` / `DOME_ZC` | 32.1 / 72.0 / -38.3 | ドーム外面の楕円 r = A·√(1−((z−ZC)/B)²)。傾きが45°を超える先端側は接線円錐 |
+| `THICK` | 2.0 | ドームの肉厚（法線方向）。内面は外面の法線オフセット |
+| `FLANGE_R` / `FLANGE_H` | 27.5 / 2.0 | リム（つば） |
+| `N_RIB` | 6 | 板ばねリブの本数 |
+| `TWIST` | 58 | リブの根元→先端のねじれ角 [度] |
+| `W_BOT` / `W_TOP` | 8.8 / 5.8 | リブ幅（肉厚中央の水平弧長）。z² で細くなる |
+| `GAP_Z0` | 2.6 | リブ間の隙間の下端。ここから半円で丸めてリムにつなぐ |
+
+リブはドーム面上の (z, 幅, 内外) の格子から直接立体を組み、リムと union している。
+
+## 外殻のパラメータ（`scripts/02_build_shell.py` 冒頭）
 
 | 変数 | 値 | 意味 |
 |---|---|---|
@@ -29,44 +47,39 @@ SanderWel のような**密閉できる外殻**で包んだ携帯卵ケース。
 | `GRV_TURNS` | 2.1 | めねじ溝の巻き数（後述） |
 | `SEAM_GAP` | 0.5 | 締め切った時の蓋スカート下端と bottom の肩の隙間 |
 | `END_D` | 22.0 | 天面・底面の径 |
-| `TOP_FILLET` | 4.69（自動） | top の円筒と45°円錐の間の角の丸め半径。円筒側の接点がねじ首の上端に来る最大値 |
+| `TOP_FILLET` | 4.59（自動） | top の円筒と45°円錐の間の角の丸め半径。円筒側の接点がねじ首の上端に来る最大値 |
 
 ねじ：外径 φ61.4 / 谷径 φ59.4、山高2.6・溝高4.4・残り山0.6mm。
 シールは首の頂面と蓋の肩が当たる**幅1.2mmの環状面**。
 
 外形：
 - **bottom**：合わせ目で縦接線・半径＝スカート外径の1/4楕円 → 45°の接線円錐 → 底面 φ22（卵の下半分）
-- **top**：ねじ部の垂直な円筒 →（R4.69の丸め）→ 45°の円錐 →（角）→ 天面 φ22
+- **top**：ねじ部の垂直な円筒 →（R4.59の丸め）→ 45°の円錐 →（角）→ 天面 φ22
 
 空洞は cage 包絡面＋`CLEAR` のまま（cage の遊びを変えない）。外形とのあいだは中実。
 
 ## 設計上の注意（ハマったところ）
 
-1. **cage の軸は切断正方形の中心ではない。** 真の軸は (26.3, 26.3)、リム R=25.0。
-   円フィットで求めている（`scripts/02`）。
-2. **元の cage は点対称ではない。** 耳が 45°側 r=29.65 / 225°側 r=31.35 と非対称。
-   軸まわり180°回転コピーとの union で点対称化している。
-3. **耳・タブは全部削除した**（半径27.5の円筒でカット）。本家ではロッド固定に
-   使っていたが、外殻があるので不要。これで最大半径 30.5→27.5。
-4. **クリアランス包絡面は頂点だけから計算してはいけない。**
-   耳の平らな側面には中間頂点がなく、0.62mm 食い込む。
+1. **cage のドームを楕円のまま先端まで伸ばすと45°を超える。**
+   先端付近で内面が最大68°のオーバーハングになる。外殻と同じく
+   接線円錐で置き換えて dR/dz ≤ 1 に抑えている。
+2. **クリアランス包絡面は頂点だけから計算してはいけない。**
+   平らな面には中間頂点がなく食い込む。
    `subdivide_to_size(max_edge=0.4)` でメッシュを細分化してから計算する。
-5. **めねじ溝はおねじより1ピッチ分下に長く伸ばす**（`GRV_TURNS = THR_TURNS + 1.0`）。
+3. **めねじ溝はおねじより1ピッチ分下に長く伸ばす**（`GRV_TURNS = THR_TURNS + 1.0`）。
    溝がスカート下端まで届いていないと、締め込み途中でおねじが溝の端に衝突する。
    ランアウトのテーパーも溝側には付けない。
-6. **ねじ溝を r/z 両方向に一律オフセットするとフランク角が変わる**（45°→58°で
+4. **ねじ溝を r/z 両方向に一律オフセットするとフランク角が変わる**（45°→58°で
    サポートが必要になった）。45°を保ったまま隙間を取ること。
-7. **booleanの結果をSTLに書くと watertight が壊れることがある。**
+5. **booleanの結果をSTLに書くと watertight が壊れることがある。**
    大きなboxとのintersectionを最後に一回かけると直る（`clean()`）。
    ただし**最後の座標移動の後**にかけること。
 
 ## 生成手順
 
 ```
-python scripts/01_cut_quarter.py      # cage.stl -> out/work/cage_quarter.stl (2x2の1個分を切出し)
-python scripts/02_make_symmetric.py   # -> out/work/cage_unit_sym.stl        (点対称化)
-python scripts/03_remove_lugs.py      # -> out/cage_unit.stl                 (耳を除去)
-python scripts/04_build_shell.py      # -> out/shell_bottom.stl, out/shell_top.stl
+python scripts/01_make_cage.py    # -> out/cage_unit.stl
+python scripts/02_build_shell.py  # -> out/shell_bottom.stl, out/shell_top.stl（cage の包絡面から空洞を作る）
 ```
 
 検証：
@@ -85,7 +98,7 @@ python scripts/91_overhang.py   # 接地面を除いたオーバーハング面�
 ねじ込み 0->540度 (10点)      : 干渉 0.00 mm3 すべて
 真上に引抜き 1.5 / 3.0mm      : 87 / 94 mm3  -> ねじが軸方向を保持
 cage上下 x bottom/top (4組)   : 干渉 0.00 mm3
-オーバーハング(接地面を除く)  : bottom 0.0 mm2 / top 0.0 mm2
+オーバーハング(接地面を除く)  : bottom 0.0 mm2 / top 0.0 mm2 / cage 0.0 mm2
 3部品すべて watertight・単一ボディ
 ```
 
@@ -97,10 +110,10 @@ cage上下 x bottom/top (4組)   : 干渉 0.00 mm3
 
 接地面は bottom・top とも φ22mm（約380mm²）。ブリム推奨。
 
-はめあいがきつい／緩い場合は `scripts/04_build_shell.py` の `TCLR`（現在0.30）を
-調整して `04` から作り直す。
+はめあいがきつい／緩い場合は `scripts/02_build_shell.py` の `TCLR`（現在0.30）を
+調整して `02` から作り直す。
 
 ## 参照元
 
-- `ref_CyberCyclist/` — [Egg Carry Holder V2 (Thingiverse 1185864)](https://www.thingiverse.com/thing:1185864) — `cage.stl` を `ref_CyberCyclist/files/` に置くと `scripts/01` が読み込む
-- `ref_SanderWel/` — [3Dプリント 卵の携帯容器 (MakerWorld)](https://makerworld.com/ja/models/1239562-egg-travel-container)
+- [Egg Carry Holder V2 (Thingiverse 1185864)](https://www.thingiverse.com/thing:1185864) — cage の寸法の参考元（STL は生成には使わない）
+- [3Dプリント 卵の携帯容器 (MakerWorld)](https://makerworld.com/ja/models/1239562-egg-travel-container)
