@@ -18,11 +18,25 @@ print("[cage との干渉]")
 for cn,cm in [("上",sym),("下",lo)]:
     for sn,sm in [("bottom",bowl),("top",cap)]:
         print(f"   {sn} x cage{cn}: {B.intersection([sm,cm],engine=E).volume:6.2f} mm3")
-print("[殻を開けたとき cage が殻側に残るか (cage を殻から離す向きにずらす)]")
-for cn,cm,sn,sm,sg in [("上",sym,"top",cap,-1),("下",lo,"bottom",bowl,1)]:
-    for dz in (0.3,0.6,1.0):
-        c=cm.copy(); c.apply_translation([0,0,sg*dz])
-        print(f"   {sn} x cage{cn} {dz}mm: {B.intersection([sm,c],engine=E).volume:6.2f} mm3")
+print("[蓋を開けたとき上の cage が蓋側に残るか (上の cage を蓋から下へずらす。出っ張りがリムの V 溝に掛かる)]")
+for dz in (0.2,0.4,0.8):
+    c=sym.copy(); c.apply_translation([0,0,-dz])
+    print(f"   top x cage上 -{dz}mm: {B.intersection([cap,c],engine=E).volume:6.2f} mm3")
+print("[卵のばね力で cage が端へ押されたとき、リムで止まるか (cage ごと端へずらす)]")
+for cn,cm,sn,sm,sg in [("上",sym,"top",cap,1),("下",lo,"bottom",bowl,-1)]:
+    v=[]
+    for dz in (0.1,0.3):
+        c=cm.copy(); c.apply_translation([0,0,sg*dz]); v.append(B.intersection([sm,c],engine=E).volume)
+    print(f"   {sn} x cage{cn} 0.1 / 0.3mm: {v[0]:6.2f} / {v[1]:6.2f} mm3")
+END_CLEAR=cap.bounds[1][2]-1.2-sym.bounds[1][2]   # 天面の内面と cage 先端の間隔（WALL=1.2）
+H=sym.bounds[1][2]; RH=2.0
+print(f"[大きい卵で先端が逃げられるか (リムは固定・先端の輪を端へ s×{END_CLEAR:.1f}mm。リムからの高さに比例して伸ばす)]")
+for cn,cm,sn,sm,sg in [("上",sym,"top",cap,1),("下",lo,"bottom",bowl,-1)]:
+    v=[]
+    for s_ in (0.5,0.9,1.0,1.1):
+        c=cm.copy(); z=c.vertices[:,2]*sg
+        c.vertices[:,2]+=sg*s_*END_CLEAR*np.clip((z-RH)/(H-RH),0,1); v.append(B.intersection([sm,c],engine=E).volume)
+    print(f"   {sn} x cage{cn} s=0.5/0.9/1.0/1.1: "+" / ".join(f"{x:.2f}" for x in v)+" mm3")
 print("[オーバーハング (印刷姿勢)]")
 for n,m,flip in [("bottom 底面下",bowl,False),("top 天面下(反転)",cap,True)]:
     x=m.copy()

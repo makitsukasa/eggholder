@@ -10,22 +10,13 @@ DOME_A   = 32.1    # ドーム外面の楕円 r = A*sqrt(1-((z-ZC)/B)^2)
 DOME_B   = 72.0
 DOME_ZC  = -38.3
 THICK    = 2.0     # ドームの肉厚（法線方向）
-FLANGE_R, FLANGE_H = 27.5, 2.0   # リム（つば）
+FLANGE_R, FLANGE_H = 29.4, 2.0   # リム（つば）。2枚重ねて bottom の首の頂面と蓋の肩で挟む。外径＝首の外径（02 はここから首を決める）
+RIM_GRV  = 0.5                   # リム外周の V 溝の深さ（上下45°、リム厚の中央）。蓋の内側の出っ張りがはまり、上の cage を蓋側に残す
 N_RIB    = 6       # 板ばねリブの本数
 TWIST    = 58.0    # リブの根元→先端のねじれ角 [度]
 W_BOT, W_TOP = 8.8, 5.8          # リブ幅（肉厚中央での水平方向の弧長）根元 / 先端
 GAP_Z0   = FLANGE_H+0.6          # リブ間の隙間の下端（半円で丸める）
 MAXSLOPE = 1.0                   # ドームの dR/dz 上限＝鉛直から45°
-# 保持脚：リムから立てた脚の先端の爪を殻の環状溝に掛け、蓋を開けても cage が殻側に残るようにする。
-# リブには触れない（リブ間の隙間に置く）ので板ばねの剛性は変わらない。
-N_LEG    = 2                     # 本数（180°回転対称を保つため偶数）
-LEG_T    = 1.2                   # 脚の肉厚。内径はリブ外面＋LEG_GAP（半径方向にもリブと離す）
-LEG_GAP  = 0.3
-LEG_W    = 5.0                   # 脚の幅（外径での弧長）
-BARB_Z   = 10.0                  # 爪の下端（ねじ首の頂面 z=9.5 より上）
-BARB_H, BARB_F = 0.6, 0.3        # 爪の張り出し（上下とも45°） / 先端の平らな部分
-LEG_TOP  = BARB_Z+2*BARB_H+BARB_F
-
 zs=np.linspace(0,H,309)
 # 外面：楕円。傾きが 45 度を超える先端側は接線円錐に置き換える（cage はリム下で印刷するのでオーバーハング禁止）
 zf=np.linspace(-5,H+5,4000); Rf=DOME_A*np.sqrt(np.clip(1-((zf-DOME_ZC)/DOME_B)**2,0,None))
@@ -69,31 +60,12 @@ for n in range(N_RIB):
     P=np.stack([np.stack([R[:,None]*np.cos(th),R[:,None]*np.sin(th),np.broadcast_to(zs[:,None],th.shape)],-1)
                 for R in (Ro,Ri)],2)
     ribs.append(grid_solid(P))
-fl=trimesh.creation.annulus(r_min=np.interp(FLANGE_H,zs,Ri),r_max=FLANGE_R,height=FLANGE_H,sections=512)
-fl.apply_translation([0,0,FLANGE_H/2])
-
-# 保持脚。リムより上のリブ外面より外に置き、さらにリブ間の隙間が開いている高さでリブが通らない角度帯の中央に置く。
-LEG_RI=Ro[zs>=FLANGE_H].max()+LEG_GAP; LEG_RO=LEG_RI+LEG_T
-zl=(zs<=LEG_TOP)&(gap>=2*np.pi*Rm/N_RIB-W-1e-9)
-lo_edge=(th_c+hw)[zl].max(); hi_edge=(th_c-hw)[zl].min()+2*np.pi/N_RIB
-LEG_ANG=(lo_edge+hi_edge)/2; leg_hw=LEG_W/2/LEG_RO
-prof=[(LEG_RI,0),(LEG_RO,0),(LEG_RO,BARB_Z),(LEG_RO+BARB_H,BARB_Z+BARB_H),(LEG_RO+BARB_H,BARB_Z+BARB_H+BARB_F),
-      (LEG_RO,LEG_TOP),(LEG_RI,LEG_TOP)]
-ring=trimesh.creation.revolve(np.array(prof+prof[:1]),sections=512)
-legs=[]
-for n in range(N_LEG):
-    a=LEG_ANG+2*np.pi*n/N_LEG+np.array([-leg_hw,leg_hw])           # くさびで脚の幅だけ切り出す
-    w=[(0,0,z) for z in (-1,LEG_TOP+1)]+[(40*np.cos(t),40*np.sin(t),z) for t in a for z in (-1,LEG_TOP+1)]
-    legs.append(B.intersection([ring,trimesh.convex.convex_hull(np.array(w))],engine=E))
-print(f"leg r{LEG_RI:.2f}..{LEG_RO:.2f} barb r{LEG_RO+BARB_H:.2f} | angle {np.degrees(LEG_ANG):.1f}deg | rib-free band {np.degrees(hi_edge-lo_edge):.1f}deg,"
-      f" margin each side {(hi_edge-lo_edge)/2*LEG_RI-LEG_W/2:.2f}mm @r{LEG_RI}")
+zg=FLANGE_H/2; rin=np.interp(FLANGE_H,zs,Ri)
+fl=trimesh.creation.revolve(np.array([(rin,0),(FLANGE_R,0),(FLANGE_R,zg-RIM_GRV),(FLANGE_R-RIM_GRV,zg),(FLANGE_R,zg+RIM_GRV),
+                                      (FLANGE_R,FLANGE_H),(rin,FLANGE_H),(rin,0)]),sections=512)
 body=B.union(ribs+[fl],engine=E)
-k=B.union([body]+legs,engine=E)
 clean=lambda m: B.intersection([m,trimesh.creation.box(extents=[500,500,500])],engine=E)
-clean(k).export("out/cage_unit.stl")
-os.makedirs("out/work",exist_ok=True)
-clean(body).export("out/work/cage_body.stl")                  # 02 の空洞（たわみ代）用
-clean(B.union(legs,engine=E)).export("out/work/cage_legs.stl")  # 02 の環状溝用
+clean(body).export("out/cage_unit.stl")
 
 b=trimesh.load("out/cage_unit.stl"); b.merge_vertices(); b.fix_normals()
 r2=b.copy(); r2.apply_transform(trimesh.transformations.rotation_matrix(np.pi,[0,0,1]))
