@@ -6,7 +6,7 @@ from thread_lib import helix_solid
 E="manifold"; B=trimesh.boolean
 
 CLEAR  = 1.0     # cage たわみ代
-END_CLEAR = 4.0  # cage 先端と殻の天面・底面の内面の間隔＝大きい卵で先端の輪が逃げられる量（板ばねのストローク）。
+END_CLEAR = 7.0  # cage 先端と殻の天面・底面の内面の間隔＝大きい卵でリブの先が逃げられる量（板ばねのストローク）。
                  # cage はリムで殻に固定されるので、先端は普段は浮いていて天面・底面には当たらない
 BUMP_N, BUMP_H, BUMP_W = 3, 0.6, 4.0  # 蓋の内側の出っ張り（リムの V 溝にはまり上の cage を蓋側に残す）: 数 / 内径からの張り出し / 幅
 WALL   = 1.2     # 殻の肉厚

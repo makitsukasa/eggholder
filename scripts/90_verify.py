@@ -30,13 +30,39 @@ for cn,cm,sn,sm,sg in [("上",sym,"top",cap,1),("下",lo,"bottom",bowl,-1)]:
     print(f"   {sn} x cage{cn} 0.1 / 0.3mm: {v[0]:6.2f} / {v[1]:6.2f} mm3")
 END_CLEAR=cap.bounds[1][2]-1.2-sym.bounds[1][2]   # 天面の内面と cage 先端の間隔（WALL=1.2）
 H=sym.bounds[1][2]; RH=2.0
-print(f"[大きい卵で先端が逃げられるか (リムは固定・先端の輪を端へ s×{END_CLEAR:.1f}mm。リムからの高さに比例して伸ばす)]")
+print(f"[大きい卵で先端が逃げられるか (リムは固定・リブの先を端へ s×{END_CLEAR:.1f}mm。リムからの高さに比例して伸ばす)]")
 for cn,cm,sn,sm,sg in [("上",sym,"top",cap,1),("下",lo,"bottom",bowl,-1)]:
     v=[]
     for s_ in (0.5,0.9,1.0,1.1):
         c=cm.copy(); z=c.vertices[:,2]*sg
         c.vertices[:,2]+=sg*s_*END_CLEAR*np.clip((z-RH)/(H-RH),0,1); v.append(B.intersection([sm,c],engine=E).volume)
     print(f"   {sn} x cage{cn} s=0.5/0.9/1.0/1.1: "+" / ".join(f"{x:.2f}" for x in v)+" mm3")
+print("[卵 (03_make_eggs) が入るか。卵を上下の cage の間で釣り合う位置に置き、リブ先端の必要な変位を求める]")
+# リブは高さに比例して伸びる（先端の変位 s）とみなす。s>0 で卵が押し付けられる（ばねが効く）、s<0 は隙間
+V,_=trimesh.remesh.subdivide_to_size(sym.vertices,sym.faces,max_edge=0.4)
+vz=np.round(V[:,2]/0.1).astype(int); vr=np.hypot(V[:,0],V[:,1])
+pin=np.full(vz.max()+1,1e9); np.minimum.at(pin,vz,vr); cz=np.arange(len(pin))*0.1; cri=pin   # cage 内面 (z, r)
+def need_s(xe,re):
+    def ok(s_):
+        zz=cz+s_*np.clip((cz-RH)/(H-RH),0,1); k=(xe>0)&(xe<=zz[-1])
+        return (re[k]<=np.interp(xe[k],zz,cri)+1e-9).all()
+    a,b_=-15.0,15.0
+    for _ in range(50):
+        m_=(a+b_)/2; a,b_=(a,m_) if ok(m_) else (m_,b_)
+    return b_
+ZCAV=cap.bounds[1][2]-1.2
+for en in ("small","large"):
+    eg=L(f"out/egg_{en}.stl"); W_,_=trimesh.remesh.subdivide_to_size(eg.vertices,eg.faces,max_edge=0.5)
+    ez=np.round(W_[:,2]/0.1).astype(int); er=np.hypot(W_[:,0],W_[:,1])
+    pe=np.zeros(ez.max()-ez.min()+1); np.maximum.at(pe,ez-ez.min(),er); xe=(np.arange(len(pe))+ez.min())*0.1
+    best=None
+    for c in np.linspace(-4,4,161):
+        st=need_s(xe+c,pe); sb=need_s(-(xe+c),pe)
+        if best is None or abs(st-sb)<abs(best[1]-best[2]): best=(c,st,sb)
+    c,st,sb=best; e2=eg.copy(); e2.apply_translation([0,0,c])
+    vol=B.intersection([e2,B.union([bowl,cap],engine=E)],engine=E).volume
+    print(f"   {en}: 中心 z{c:+.2f} / 先端の変位 上 {st:+.2f} 下 {sb:+.2f} mm (逃げ代 {END_CLEAR:.1f}) / "
+          f"卵の先と天面・底面 {ZCAV-e2.bounds[1][2]:.2f} / {e2.bounds[0][2]+ZCAV:.2f} mm / 殻との干渉 {vol:.2f} mm3")
 print("[オーバーハング (印刷姿勢)]")
 for n,m,flip in [("bottom 底面下",bowl,False),("top 天面下(反転)",cap,True)]:
     x=m.copy()
